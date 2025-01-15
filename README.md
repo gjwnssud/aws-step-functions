@@ -150,3 +150,29 @@ python3.9, python3.10, python3.11, python3.12, provided.al2023
 - **MergeVideoFile**
   - 병렬로 처리 중인 `ParallelMediaConvert` 상태 완료 대기
   - 분할 된 파일 병합 후 최종 S3경로로 업로드
+
+### Test Case
+#### #1
+- 조건
+  - `SegmentDuration`: 300초
+  - 용량: 3GB
+- 결과
+![test-case-1.png](media-convert/test-case-1.png)
+#### #2
+- 조건
+  - `SegmentDuration`: 60초
+  - `#1` 동일
+- 결과
+![test-case-2.png](media-convert/test-case-2.png)
+#### #3
+- 조건
+  - `SegmentDuration`: 300초
+  - 용량: 870MB
+- 결과
+![test-case-3.png](media-convert/test-case-3.png)
+#### #4
+- 조건
+  - `SegmentDuration`: 60초
+  - `#3` 동일
+- 결과
+![img.png](media-convert/test-case-4.png)
