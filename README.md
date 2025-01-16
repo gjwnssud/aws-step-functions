@@ -1,4 +1,4 @@
-# aws-step-functions
+# AWS Step Functions
 워크플로우의 작업(Task)으로 복잡한 비즈니스 로직을 오케스트레이션하는 기능입니다.  
 여기서는 Lambda 함수 호출을 이용합니다.
 ## Media Convert
