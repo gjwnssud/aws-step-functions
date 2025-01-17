@@ -30,10 +30,21 @@ def lambda_handler(event, context):
 
     try:
         # 1. 파일 용량 확인
+        file_size_limit = int(os.environ["FileSizeLimit"])
         file_size = os.path.getsize(local_input_file)
-        if file_size > 3 * 1024 * 1024 * 1024:  # 3GB 초과
+        if file_size > file_size_limit:  # 초과
             logger.warning("File size exceeds 3GB. Exiting function.")
             return {"status": "failed", "reason": "File size exceeds 3GB"}
+
+        file_split_size_limit = int(os.environ["FileSplitSizeLimit"])
+        if file_size <= file_split_size_limit:
+            # 분할 없이 원본 반환
+            logger.info(f"File size is less than {file_split_size_limit / (1024 * 1024):.2f}MB. Proceeding with direct upload.")
+            return {
+                "status": "success",
+                "bucket": bucket_name,
+                "parts": [object_key]
+            }
 
         # 2. 영상 길이 확인
         logger.info("Checking video duration...")
@@ -47,11 +58,10 @@ def lambda_handler(event, context):
         part_files = []
         if video_duration < int(segment_duration):  # segment_duration(초) 미만
             # 분할 없이 원본 반환
-            part_files.append(object_key)
             return {
                 "status": "success",
                 "bucket": bucket_name,
-                "parts": part_files
+                "parts": [object_key]
             }
 
         logger.info(f"Video duration is {video_duration} seconds. Starting splitting process...")
@@ -61,7 +71,7 @@ def lambda_handler(event, context):
             "ffmpeg", "-i", local_input_file,
             "-c", "copy", "-map", "0",
             "-segment_time", str(segment_duration),
-            "-f", "segment", local_parts_output_pattern
+            "-f", "segment", "-reset_timestamps", "1", local_parts_output_pattern
         ]
         subprocess.run(command, check=True)
         logger.info("Video splitting completed.")
