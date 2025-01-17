@@ -52,7 +52,8 @@ AWS Media Convert 서비스를 이용하여 동영상 인코딩 및 썸네일 �
 						"Parameters": {
 							"Payload": {
 								"bucket.$": "$.bucket",
-								"part.$": "$.part"
+								"part.$": "$.part",
+								"partIndex.$": "$.partIndex"
 							},
 							"FunctionName": "arn:aws:lambda:[region]:[AccountID]:function:ParallelMediaConvert:$LATEST"
 						},
@@ -82,7 +83,8 @@ AWS Media Convert 서비스를 이용하여 동영상 인코딩 및 썸네일 �
 			"ItemsPath": "$.parts",
 			"ItemSelector": {
 				"bucket.$": "$.bucket",
-				"part.$": "$$.Map.Item.Value"
+				"part.$": "$$.Map.Item.Value",
+				"partIndex.$": "$$.Map.Item.Index"
 			},
 			"Next": "Pass"
 		},

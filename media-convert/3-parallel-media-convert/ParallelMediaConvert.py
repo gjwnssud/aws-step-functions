@@ -29,8 +29,6 @@ def handler(event, context):
     gWidth = 960
     height = None
     gHeight = 540
-    aBitrate = 0
-    vBitrate = 0
 
     # Use MediaConvert SDK UserMetadata to tag jobs with the assetID
     # Events from MediaConvert will have the assetID in UserMedata
@@ -77,14 +75,11 @@ def handler(event, context):
                 if track['@type'] == 'Video':
                     width = int(track['Width'])
                     height = int(track['Height'])
-                    vBitrate = int(track['BitRate'])
-                if track['@type'] == 'Audio':
-                    aBitrate = int(track['BitRate'])
-        except:
+        except Exception as e:
+            logger.error("Unable to get signed url or run mediainfo: %s", e)
             width = 960
             height = 540
 
-        logger.info('vBitrate: %d, aBitrate: %d', vBitrate, aBitrate)
         logger.info('width: %d, height: %d', width, height)
 
         for obj in bucket.objects.filter(Prefix='jobs/'):
@@ -166,18 +161,29 @@ def handler(event, context):
                     logger.error("Exception: Unknown Output Group Type %s", outputGroup['OutputGroupSettings']['Type'])
                     raise ValueError("Unknown Output Group Type")
 
-            # 첫번째 파일일 경우 썸네일 추출 세팅 등록
-            if int(file_name.split("_")[0].replace("part", "")) == 0:
-                try:
+            # 썸네일 추출 세팅 등록
+            file_name_split = file_name.split("_")
+            try:
+                if len(file_name_split) > 1: # 분할 첫번째 파일일 경우
+                    if int(file_name_split[0].replace("part", "")) == 0:
+                        setThumbnailSettings(jobSettings, gWidth, gHeight, original_file_name)
+                else: # 단일 파일일 경우
                     setThumbnailSettings(jobSettings, gWidth, gHeight, original_file_name)
-                except Exception as e:
-                    logger.error(f'failed setThumbnailSettings, Exception: {e}')
-                    pass
+            except Exception as e:
+                logger.error(f'failed setThumbnailSettings, Exception: {e}')
+                pass
 
             logger.info(json.dumps(jobSettings))
 
+            # 대기열 지정 (대기열 수 만큼 분배)
+            part_index = event['partIndex']
+            media_convert_queue_arn = os.environ['MediaConvertQueueArn']
+            media_count_queue_count = int(os.environ['MediaConvertQueueCount'])
+            queue_index = part_index % media_count_queue_count
+            queue_name = f"{media_convert_queue_arn}-{queue_index}"
+
             # Convert the video using AWS Elemental MediaConvert
-            job = client.create_job(Role=mediaConvertRole, UserMetadata=jobMetadata, Settings=jobSettings)
+            client.create_job(Role=mediaConvertRole, UserMetadata=jobMetadata, Settings=jobSettings, Queue=queue_name)
 
             return_value['data']['encodedPart'] = urlparse(encoded_file_dest_bucket).path.lstrip('/') + file_name + ".mp4"
             return_value['data']['originalFileName'] = original_file_name
