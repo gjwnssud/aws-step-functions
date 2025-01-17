@@ -8,6 +8,7 @@ s3 = boto3.client('s3')
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+
 def lambda_handler(event, context):
     bucket_name = event['bucket']
     object_key = event['key']
@@ -29,6 +30,8 @@ def lambda_handler(event, context):
     s3.download_file(bucket_name, object_key, local_input_file)
 
     try:
+        part_files = []
+
         # 1. 파일 용량 확인
         file_size_limit = int(os.environ["FileSizeLimit"])
         file_size = os.path.getsize(local_input_file)
@@ -37,14 +40,16 @@ def lambda_handler(event, context):
             return {"status": "failed", "reason": "File size exceeds 3GB"}
 
         file_split_size_limit = int(os.environ["FileSplitSizeLimit"])
-        if file_size <= file_split_size_limit:
-            # 분할 없이 원본 반환
-            logger.info(f"File size is less than {file_split_size_limit / (1024 * 1024):.2f}MB. Proceeding with direct upload.")
-            return {
-                "status": "success",
-                "bucket": bucket_name,
-                "parts": [object_key]
-            }
+        if file_split_size_limit > 0:
+            if file_size <= file_split_size_limit:
+                # 분할 없이 원본 반환
+                logger.info(f"File size is less than {file_split_size_limit / (1024 * 1024):.2f}MB. Proceeding with direct upload.")
+                s3_upload(bucket_name, path, local_root, inpu_contents_path, filename, part_files)
+                return {
+                    "status": "success",
+                    "bucket": bucket_name,
+                    "parts": part_files
+                }
 
         # 2. 영상 길이 확인
         logger.info("Checking video duration...")
@@ -55,13 +60,13 @@ def lambda_handler(event, context):
         result = subprocess.run(ffprobe_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         video_duration = float(result.stdout.strip())
 
-        part_files = []
         if video_duration < int(segment_duration):  # segment_duration(초) 미만
             # 분할 없이 원본 반환
+            s3_upload(bucket_name, path, local_root, inpu_contents_path, filename, part_files)
             return {
                 "status": "success",
                 "bucket": bucket_name,
-                "parts": [object_key]
+                "parts": part_files
             }
 
         logger.info(f"Video duration is {video_duration} seconds. Starting splitting process...")
@@ -77,12 +82,7 @@ def lambda_handler(event, context):
         logger.info("Video splitting completed.")
 
         # 분할된 파일 업로드 및 목록 생성
-        for part_file in os.listdir(local_parts_output):
-            # S3에 업로드
-            output_key = f"{path.replace(inpu_contents_path, inpu_contents_path + "_parts")}/{filename}/{part_file}"
-            logger.info(f"Uploading {local_parts_output}/{part_file} to bucket {bucket_name} with key {output_key}")
-            s3.upload_file(local_parts_output + "/" + part_file, bucket_name, output_key)
-            part_files.append(output_key)
+        s3_upload(bucket_name, path, local_parts_output, inpu_contents_path, filename, part_files)
 
         # 처리 결과 반환
         return_value = {"status": "success", "bucket": bucket_name, "parts": part_files}
@@ -107,3 +107,13 @@ def remove_file(path):
                 remove_file(os.path.join(path, file))
             if path != "/tmp":  # /tmp 디렉토리는 유지
                 os.rmdir(path)
+
+
+def s3_upload(bucket_name, path, source_dir, inpu_contents_path, filename, part_files):
+    for part_file in os.listdir(source_dir):
+        if os.path.isfile(os.path.join(source_dir, part_file)):
+            # S3에 업로드
+            output_key = f"{path.replace(inpu_contents_path, inpu_contents_path + "_parts")}/{filename}/{part_file}"
+            logger.info(f"Uploading {source_dir}/{part_file} to bucket {bucket_name} with key {output_key}")
+            s3.upload_file(source_dir + "/" + part_file, bucket_name, output_key)
+            part_files.append(output_key)
