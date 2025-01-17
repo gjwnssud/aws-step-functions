@@ -36,9 +36,20 @@ AWS Media Convert 서비스를 이용하여 동영상 인코딩 및 썸네일 �
 					"JitterStrategy": "FULL"
 				}
 			],
-			"Next": "Map"
+			"Next": "AddSplitFileArraySize"
 		},
-		"Map": {
+		"AddSplitFileArraySize": {
+			"Type": "Pass",
+			"Next": "MediaConvertParallelProcessing",
+			"InputPath": "$",
+			"Parameters": {
+				"bucket.$": "$.bucket",
+				"parts.$": "$.parts",
+				"partsSize.$": "States.ArrayLength($.parts)"
+			},
+			"ResultPath": "$"
+		},
+		"MediaConvertParallelProcessing": {
 			"Type": "Map",
 			"ItemProcessor": {
 				"ProcessorConfig": {
@@ -53,7 +64,8 @@ AWS Media Convert 서비스를 이용하여 동영상 인코딩 및 썸네일 �
 							"Payload": {
 								"bucket.$": "$.bucket",
 								"part.$": "$.part",
-								"partIndex.$": "$.partIndex"
+								"partIndex.$": "$.partIndex",
+								"partsSize.$": "$.partsSize"
 							},
 							"FunctionName": "arn:aws:lambda:[region]:[AccountID]:function:ParallelMediaConvert:$LATEST"
 						},
@@ -84,11 +96,12 @@ AWS Media Convert 서비스를 이용하여 동영상 인코딩 및 썸네일 �
 			"ItemSelector": {
 				"bucket.$": "$.bucket",
 				"part.$": "$$.Map.Item.Value",
-				"partIndex.$": "$$.Map.Item.Index"
+				"partIndex.$": "$$.Map.Item.Index",
+				"partsSize.$": "$.partsSize"
 			},
-			"Next": "Pass"
+			"Next": "PostProcessParallelArrayResults"
 		},
-		"Pass": {
+		"PostProcessParallelArrayResults": {
 			"Type": "Pass",
 			"Next": "MergeVicdeoFile",
 			"InputPath": "$",

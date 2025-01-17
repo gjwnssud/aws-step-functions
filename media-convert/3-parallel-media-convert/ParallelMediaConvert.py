@@ -162,12 +162,16 @@ def handler(event, context):
                     raise ValueError("Unknown Output Group Type")
 
             # 썸네일 추출 세팅 등록
-            file_name_split = file_name.split("_")
+
             try:
-                if len(file_name_split) > 1: # 분할 첫번째 파일일 경우
-                    if int(file_name_split[0].replace("part", "")) == 0:
+                parts_size = event['partsSize']
+                logger.info(f"parts_size = {parts_size}")
+                if parts_size > 1:
+                    # 분할 첫번째 파일일 경우
+                    if int(file_name.split("_")[0].replace("part", "")) == 0:
                         setThumbnailSettings(jobSettings, gWidth, gHeight, original_file_name)
-                else: # 단일 파일일 경우
+                else:
+                    # 단일 파일일 경우
                     setThumbnailSettings(jobSettings, gWidth, gHeight, original_file_name)
             except Exception as e:
                 logger.error(f'failed setThumbnailSettings, Exception: {e}')
