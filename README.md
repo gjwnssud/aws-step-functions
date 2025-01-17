@@ -155,13 +155,15 @@ python3.9, python3.10, python3.11, python3.12, provided.al2023
   - S3트리거 이벤트를 이용한 상태 머신 실행 함수
 - **SplitVideoFile**
   -  환경변수에 정의된 `SegmentDuration` 값에 따라 파일 분할 및 S3 업로드
-- **Map**
-  - `SplitVideoFile` 상태에서 분할 된 파일 목록으로 각 파일마다 `ParallelMediaConvert` 함수를 병렬로 호출
+- **AddSplitFileArraySize**
+  - `SplitVideoFile` 상태 결과 데이터에 분할된 파일 배열 사이즈 추가
+- **MediaConvertParallelProcessing**
+  - `AddSplitFileArraySize` 상태에서 분할 된 파일 목록으로 각 파일마다 `ParallelMediaConvert` 함수를 병렬로 호출
 - **ParallelMediaConvert**
   - `MP4` 인코딩 및 `Thumbnail` 추출 / S3 업로드
   - `Thumbnail`의 경우 분할된 파일중 첫번째 파일에서 추출 진행
-- **Pass**
-  - `Map` 상태에서 반환된 배열을 가공하여 `MergeVideoFile` 상태로 전달
+- **PostProcessParallelArrayResults**
+  - `MediaConvertParallelProcessing` 상태에서 반환된 배열을 가공하여 `MergeVideoFile` 상태로 전달
 - **MergeVideoFile**
   - 병렬로 처리 중인 `ParallelMediaConvert` 상태 완료 대기
   - 분할 된 파일 병합 후 최종 S3경로로 업로드
